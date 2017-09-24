@@ -1,25 +1,35 @@
-// Usage: ts-node generate-tsconfigs
+// Usage: ts-node generate-tsconfigs.ts
 
 /// <reference types="node" />
 
 import * as fs from 'fs';
 import * as path from 'path';
 
-function repeat(s: string, count: number) {
-	return Array(count + 1).join(s);
-}
-
 const home = path.join(__dirname, '..');
 
-const dirs = fs.readdirSync(home).filter(d => !(d.startsWith(".") || d === "node_modules" || d === "scripts"));
-for (const dir of dirs.map(d => path.join(home, d))) {
+for (const dirName of fs.readdirSync(home)) {
+	if (dirName.startsWith(".") || dirName === "node_modules" || dirName === "scripts") {
+		continue;
+	}
+
+	const dir = path.join(home, dirName);
 	const stats = fs.lstatSync(dir);
 	if (stats.isDirectory()) {
-		const target = path.join(dir, 'tsconfig.json');
-		let json = JSON.parse(fs.readFileSync(target, 'utf-8'));
-		json = fix(json);
-		fs.writeFileSync(target, JSON.stringify(json, undefined, 4), "utf-8");
+		fixTsconfig(dir);
+		// Also do it for old versions
+		for (const subdir of fs.readdirSync(dir)) {
+			if (/^v\d+$/.test(subdir)) {
+				fixTsconfig(path.join(dir, subdir));
+			}
+		}
 	}
+}
+
+function fixTsconfig(dir: string): void {
+	const target = path.join(dir, 'tsconfig.json');
+	let json = JSON.parse(fs.readFileSync(target, 'utf-8'));
+	json = fix(json);
+	fs.writeFileSync(target, JSON.stringify(json, undefined, 4), "utf-8");
 }
 
 function fix(config: any): any {
@@ -38,9 +48,7 @@ function fixCompilerOptions(config: any): any {
 	const out: any = {};
 	for (const key in config) {
 		out[key] = config[key];
-		if (key === "noImplicitAny") {
-			out.noImplicitThis = true;
-		}
+		// Do something interesting here
 	}
 	return out;
 }
